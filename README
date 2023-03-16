@@ -1,0 +1,114 @@
+dit
+by Nathan Rosenquist
+https://nathanrosenquist.com/dit/
+
+A command-line image copying tool with specialized features designed to work
+with redundant copies of digital photos and movie files.
+
+dit is designed to take one or more mostly-identical source directories,
+and copy their contents to one or more identical destination directories.
+It also has features to verify that presumably identical source files are
+actually identical, and to save both files if they turn out to differ.
+This can help minimize the effects of data corruption in the source material.
+
+------------------------------------------------------------------------------
+BACKGROUND
+------------------------------------------------------------------------------
+I wrote this program for myself, because I needed to back up thousands of
+digital photos redundantly on a once-in-a-lifetime trip, and didn't have
+enough SD card space to hold them all.
+
+The original use was to back up two redundant SD cards from a Fujifilm
+mirrorless camera onto two USB thumb drives, while verifying that the source
+SD cards did not have any data corruption.
+
+I have also found it useful when confronted with several photo directories
+that might have naming conflicts.
+
+Note that this is a specialized program, designed to work with image and movie
+files. It intentionally skips over files starting with a dot, to avoid false
+positives on file corruption warnings (e.g. on .DS_Store files and such).
+
+The name of the program is a nod to the Digital Imaging Technician role on a
+modern digital movie set. As one small but important part of their jobs, they
+routinely copy motion picture footage from the set to multiple drives for
+safekeeping.
+
+------------------------------------------------------------------------------
+DEPENDENCIES
+------------------------------------------------------------------------------
+dit is implemented in Rust. It does not have any runtime dependencies,
+but you will need the Rust compiler and Cargo to build it.
+
+------------------------------------------------------------------------------
+Installation:
+------------------------------------------------------------------------------
+cargo build --release
+sudo cp target/release/dit /usr/local/bin/dit
+sudo chown root:root /usr/local/bin/dit
+sudo chmod 755 /usr/local/bin/dit
+
+------------------------------------------------------------------------------
+Usage:
+------------------------------------------------------------------------------
+dit
+Usage: dit read <src...> write <dest...>
+
+Pass in one or more source directories after the "read" argument, and one or
+more destination directories after the "write" argument.
+
+The read directories are all assumed to have identical or non-overlapping
+content. All files from the read directories will be copied recursively to all
+of the write directories, with the exception of files starting with a dot.
+
+If a file exists in more than one read directory with the same path, dit
+assumes that the files are supposed to have identical contents. It will then
+perform hashing calculations on all copies of the file across the read
+directories. If all files match, then one of them is copied into all the
+destinations. If any of the files differ, this is considered a
+READ MERGE CONFLICT, and each differing version of the file will be copied
+over with filenames that will sort together alphabetically. dit will show a
+warning, and the program will exit with a non-zero exit code at the end.
+
+If a file is going to be copied into a destination directory, but the
+destination directory already has a file with the same path, the file
+metadata is compared between the source and the destination, to see if the
+files are the same size. If the two files are the same size, then the
+contents are assumed to be identical. If the two files have different sizes,
+then this is considered a WRITE MERGE CONFLICT, and the source file is still
+written into the destination directory, but renamed to indicate the write
+merge conflict, in a way that will sort alphabetically near the other file.
+In this situation, the program will exit with a non-zero exit code at the
+end.
+
+There is an off chance that a source file and destination file could both
+exist, have the same sizes, but different contents, and dit would miss it.
+However, verifying the destination like this would take a great deal of extra
+CPU and I/O resources for an uncommon corner case. If you need verification in
+this case, the recommended approach is to use a new destination directory
+every time, and sort things out in a separate step (possibly also using dit).
+
+Exit codes:
+    0   OK      Everything went OK.
+
+    1   FAIL    Something went wrong, and the program stopped early.
+                Look at the error messages in stderr for details.
+
+    2   WARN    Something unusual happened (like a merge conflict), but the
+                program ran through to completion. Look at the error messages
+                in stderr for details.
+
+------------------------------------------------------------------------------
+Examples:
+------------------------------------------------------------------------------
+Copy one input directory into one output directory. In this scenario,
+you might as well just use `cp`, but it is the simplest example.
+
+    dit read /path/to/src write /path/to/dest
+
+Copy two input directories into two output directories.
+
+    dit \
+        read /path/to/src1 /path/to/src2 \
+        write /path/to/dest1 /path/to/dest2
+
